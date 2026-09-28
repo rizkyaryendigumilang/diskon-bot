@@ -3,7 +3,11 @@ import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.request import HTTPXRequest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# Import Web Server Palsu untuk mengelabui Render
+from keep_alive import keep_alive
 
 import config
 from database import init_db, get_settings, update_setting, add_posted_item
@@ -95,7 +99,6 @@ async def job_auto_blast(app: Application):
 
 
 # --- HANDLER COMMANDS ADMIN (CONTROL PANEL) ---
-
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
@@ -176,25 +179,38 @@ async def cmd_scan_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await job_auto_blast(context.application)
 
 
-# --- MAIN RUNNER ---
-# --- MAIN RUNNER ---
-
-# Fungsi pemicu untuk menyalakan Scheduler setelah event loop aktif
+# --- SETUP SCHEDULER ---
 async def post_init(app: Application):
     scheduler = AsyncIOScheduler()
-    # Jalankan job_auto_blast tiap 30 menit
     scheduler.add_job(job_auto_blast, 'interval', minutes=30, args=[app])
     scheduler.start()
     logging.info("⏰ AsyncIOScheduler berhasil diaktifkan!")
 
+
+# --- MAIN RUNNER ---
 def main():
-    # 1. Inisialisasi Database
+    # 1. Nyalakan server web palsu agar bot lolos sebagai Web Service gratis di Render
+    keep_alive()
+
+    # 2. Inisialisasi Database
     init_db()
 
-    # 2. Inisialisasi Telegram Application dengan post_init
-    app = Application.builder().token(config.BOT_TOKEN).post_init(post_init).build()
+    # 3. Atur Custom Request Timeout (Untuk mencegah error TimedOut dari Telegram)
+    request = HTTPXRequest(
+        connect_timeout=60.0,
+        read_timeout=60.0
+    )
 
-    # 3. Register Command Handlers
+    # 4. Inisialisasi Telegram Application
+    app = (
+        Application.builder()
+        .token(config.BOT_TOKEN)
+        .request(request)
+        .post_init(post_init)
+        .build()
+    )
+
+    # 5. Register Command Handlers
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("config", cmd_config))
     app.add_handler(CommandHandler("set_category", cmd_set_category))
