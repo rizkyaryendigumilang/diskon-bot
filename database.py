@@ -1,91 +1,68 @@
 # database.py
 import sqlite3
-from config import DB_NAME
-
-def get_connection():
-    """Membuat koneksi ke file database SQLite."""
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row  # Mengembalikan hasil query dalam bentuk dictionary-like
-    return conn
 
 def init_db():
-    """Inisialisasi tabel database saat bot pertama kali dijalankan."""
-    conn = get_connection()
+    conn = sqlite3.connect('bot_settings.db')
     cursor = conn.cursor()
-
-    # 1. Tabel Konfigurasi Admin (Setting Engine)
+    
+    # Tabel Pengaturan Bot (Kategori, Min Diskon, Status Pause, dan Interval Waktu)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
-            id INTEGER PRIMARY KEY DEFAULT 1,
-            category TEXT DEFAULT 'sport',
-            min_discount INTEGER DEFAULT 20,
-            platform TEXT DEFAULT 'all',
-            is_paused INTEGER DEFAULT 0
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT,
+            min_discount INTEGER,
+            is_paused INTEGER,
+            interval INTEGER
         )
     ''')
-
-    # Insert default settings jika tabel masih kosong
-    cursor.execute('SELECT COUNT(*) FROM settings')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute('''
-            INSERT INTO settings (id, category, min_discount, platform, is_paused)
-            VALUES (1, 'sport', 20, 'all', 0)
-        ''')
-
-    # 2. Tabel Histori Postingan (Anti-Duplicate Filter)
+    
+    # Tabel Histori Produk Ter-post (Mencegah duplikasi)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS posted_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id TEXT UNIQUE,
-            title TEXT,
-            posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            product_id TEXT PRIMARY KEY
         )
     ''')
-
+    
+    # Masukkan data default jika belum ada
+    cursor.execute("SELECT COUNT(*) FROM settings")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO settings (category, min_discount, is_paused, interval) VALUES (?, ?, ?, ?)", 
+                       ("sport", 20, 0, 30))
+        
     conn.commit()
     conn.close()
-    print("✅ Database SQLite berhasil diinisialisasi!")
-
-# --- FUNGSI PENGELOLA SETTINGS (ADMIN CONTROL) ---
 
 def get_settings():
-    """Mengambil konfigurasi aktif saat ini."""
-    conn = get_connection()
+    conn = sqlite3.connect('bot_settings.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT category, min_discount, platform, is_paused FROM settings WHERE id = 1')
+    cursor.execute("SELECT category, min_discount, is_paused, interval FROM settings WHERE id = 1")
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else {}
+    if row:
+        return {"category": row[0], "min_discount": row[1], "is_paused": row[2], "interval": row[3]}
+    return {"category": "sport", "min_discount": 20, "is_paused": 0, "interval": 30}
 
-def update_setting(key: str, value):
-    """Mengubah parameter konfigurasi admin (category, min_discount, platform, is_paused)."""
-    conn = get_connection()
+def update_interval_setting(minutes: int):
+    conn = sqlite3.connect('bot_settings.db')
     cursor = conn.cursor()
-    # Query dinamis sesuai field yang diubah
-    query = f"UPDATE settings SET {key} = ? WHERE id = 1"
-    cursor.execute(query, (value,))
+    cursor.execute("UPDATE settings SET interval = ? WHERE id = 1", (minutes,))
     conn.commit()
     conn.close()
 
-# --- FUNGSI ANTI-DUPLICATE (HISTORI POSTINGAN) ---
-
 def is_item_posted(product_id: str) -> bool:
-    """Mengecek apakah produk sudah pernah di-blast ke channel."""
-    conn = get_connection()
+    conn = sqlite3.connect('bot_settings.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT 1 FROM posted_items WHERE product_id = ?', (product_id,))
-    result = cursor.fetchone()
+    cursor.execute("SELECT 1 FROM posted_items WHERE product_id = ?", (product_id,))
+    exists = cursor.fetchone() is not None
     conn.close()
-    return result is not None
+    return exists
 
-def add_posted_item(product_id: str, title: str):
-    """Menyimpan ID produk yang baru saja di-blast."""
-    conn = get_connection()
+def mark_item_posted(product_id: str):
+    conn = sqlite3.connect('bot_settings.db')
     cursor = conn.cursor()
-    try:
-        cursor.execute('INSERT INTO posted_items (product_id, title) VALUES (?, ?)', (product_id, title))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        pass  # Abaikan jika ID sudah ada
-    finally:
-        conn.close()
+    cursor.execute("INSERT OR IGNORE INTO posted_items (product_id) VALUES (?)", (product_id,))
+    conn.commit()
+    conn.close()
+
+# Inisialisasi DB saat modul dipanggil
+init_db()
