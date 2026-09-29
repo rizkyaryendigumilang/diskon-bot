@@ -1,227 +1,248 @@
 # bot.py
 import logging
-import asyncio
+import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes
-from telegram.request import HTTPXRequest
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# Import Web Server Palsu untuk mengelabui Render
-from keep_alive import keep_alive
+from database import init_db, get_settings, is_item_posted, mark_item_posted
+from scraper import fetch_single_product_manual
+from config import BOT_TOKEN, CHANNEL_ID
 
-import config
-from database import init_db, get_settings, update_setting, add_posted_item
-from scraper import fetch_multi_platform_deals
+# Konfigurasi Logging
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# Admin bot (ID Telegram Kiky)
+ADMIN_IDS = [8503838227]  
 
-# --- MIDDLEWARE CHECKER ADMIN ---
-def is_admin(user_id: int) -> bool:
-    return user_id == config.ADMIN_ID
+user_states = {}
 
+def format_caption_and_buttons(deal_data):
+    platform = deal_data.get("platform", "shopee").lower()
+    
+    if "tokopedia" in platform:
+        badge = "🟢 Tokopedia"
+        btn_label = "🛒 Cek Produk di Tokopedia"
+    elif "blibli" in platform:
+        badge = "🔵 Blibli"
+        btn_label = "🛒 Cek Produk di Blibli"
+    elif "lazada" in platform:
+        badge = "🟠 Lazada"
+        btn_label = "🛒 Cek Produk di Lazada"
+    elif "tiktok" in platform:
+        badge = "🎵 TikTok Shop"
+        btn_label = "🛒 Beli di TikTok Shop"
+    else:
+        badge = "🧡 Shopee"
+        btn_label = "🛒 Cek Produk & Beli Disini"
 
-# --- FORMATTER PESAN & TOMBOL TELEGRAM ---
-def build_promo_message(deal_data: dict):
-    """Membentuk format pesan HTML dan Inline Keyboard Button dari data perbandingan."""
-    category = deal_data['category'].upper()
-    title = deal_data['title']
-    offers = deal_data['offers']
+    offer = deal_data.get("offers", [deal_data])[0] if "offers" in deal_data else deal_data
+    
+    harga_promo = f"Rp {offer.get('price_promo', 0):,}".replace(',', '.')
+    title = offer.get('title', 'Produk Pilihan')
+    aff_url = offer.get('affiliate_url') or offer.get('original_url')
+    
+    desc = offer.get('description', 'Temukan produk berkualitas tinggi ini sekarang juga. Stok dan promo dapat berubah sewaktu-waktu!')
 
-    caption = (
-        f"🔥 <b>PERBANDINGAN HARGA PROMO BEST SELLER!</b> 🔥\n"
-        f"🏆 <b>Kategori:</b> #{category}\n\n"
-        f"📌 <b>{title}</b>\n\n"
-        f"📊 <b>Cek Perbandingan Harga Hari Ini:</b>\n"
-    )
+    caption = f"✨ *HIDDEN GEM & REKOMENDASI SPESIAL* ✨\n\n"
+    caption += f"📦 *{title}*\n\n"
+    
+    if offer.get('price_promo', 0) > 0:
+        caption += f"💰 *Harga Spesial:* *{harga_promo}* ({badge})\n\n"
+    else:
+        caption += f"💰 *Cek Harga Promo di Link* ({badge})\n\n"
+        
+    caption += f"📝 *Deskripsi Singkat:*\n_{desc}_\n\n"
+    caption += f"🔗 *Link Pembelian:*\n{aff_url}"
 
-    keyboard = []
-
-    for offer in offers:
-        platform = offer['platform'].title()
-        badge = offer['badge']
-        price_orig = f"Rp {offer['price_original']:,}".replace(",", ".")
-        price_promo = f"Rp {offer['price_promo']:,}".replace(",", ".")
-        disc = offer['discount_percent']
-        sold = offer['sold_count']
-        aff_url = offer['affiliate_url']
-
-        is_cheap_label = " 🔥 <i>(Paling Murah!)</i>" if offer.get("is_cheapest") else ""
-
-        caption += (
-            f"\n{badge}:\n"
-            f"💰 <s>{price_orig}</s> ➡️ <b>{price_promo}</b> (Diskon {disc}%){is_cheap_label}\n"
-            f"⭐️ <i>Terjual: {sold}</i>\n"
-        )
-
-        # Buat tombol inline per platform
-        btn_text = f"🛒 Beli di {platform} ({price_promo})"
-        keyboard.append([InlineKeyboardButton(btn_text, url=aff_url)])
-
-    caption += (
-        f"\n---\n"
-        f"⚡ <i>Stok & promo dapat berubah sewaktu-waktu. Klik tombol di bawah untuk membeli!</i>"
-    )
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    return caption, reply_markup
+    buttons = [[InlineKeyboardButton(btn_label, url=aff_url)]]
+    return caption, buttons
 
 
-# --- JOB SCHEDULER: AUTO-BLAST KE CHANNEL ---
-async def job_auto_blast(app: Application):
-    """Job otomatis yang dipanggil oleh scheduler untuk mencari dan blast promo."""
-    logging.info("⏰ Scheduler berjalan: Memeriksa promo baru...")
-    deal_data = fetch_multi_platform_deals()
-
-    if not deal_data or not deal_data.get("offers"):
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if ADMIN_IDS and user_id not in ADMIN_IDS:
+        await update.message.reply_text(f"⛔ Maaf, Anda tidak memiliki akses ke bot ini. (ID Anda: {user_id})")
         return
 
-    caption, reply_markup = build_promo_message(deal_data)
-    main_product_id = deal_data["main_product_id"]
-    title = deal_data["title"]
+    user_states[user_id] = "MENU_UTAMA"
+
+    keyboard = [
+        [InlineKeyboardButton("🔍 Scan Kategori & Diskon", callback_data="menu_scan")],
+        [InlineKeyboardButton("🔗 Input Link Produk Manual", callback_data="menu_manual")],
+        [InlineKeyboardButton("⚙️ Admin Access", callback_data="menu_admin")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    text = "🎛 *CONTROL PANEL ADMIN*\nPilih opsi utama manajemen bot:"
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    
+    if ADMIN_IDS and user_id not in ADMIN_IDS:
+        await query.answer("Akses ditolak.", show_alert=True)
+        return
+
+    await query.answer()
+    data = query.data
+
+    if data == "menu_scan":
+        keyboard = [
+            [InlineKeyboardButton("⚡ OTOMATIS FLASHSALE (All Marketplace)", callback_data="scan_flashsale")],
+            [InlineKeyboardButton("🔥 Auto Diskon / Best Deals", callback_data="scan_auto")],
+            [
+                InlineKeyboardButton("⚡ Diskon Min. 50%", callback_data="scan_50"),
+                InlineKeyboardButton("💎 Diskon Min. 70%", callback_data="scan_70")
+            ],
+            [
+                InlineKeyboardButton("🎯 Diskon Min. 20%", callback_data="scan_20"),
+                InlineKeyboardButton("🔥 Diskon Min. 30%", callback_data="scan_30")
+            ],
+            [InlineKeyboardButton("🔙 Kembali", callback_data="kembali_menu_utama")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        text = (
+            "🎯 *LANGKAH 1: PILIH MODE SCANNING*\n"
+            "Pilih 'FLASHSALE' untuk ambil semua produk flashsale otomatis, atau tentukan target diskon:"
+        )
+        await query.message.edit_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+        
+    elif data == "menu_manual":
+        user_states[user_id] = "INPUT_MANUAL"
+        text = (
+            "🔗 *MODE INPUT LINK TUNGGAL AKTIF*\n"
+            "Silakan kirim link produk (Shopee/Tokopedia/Blibli/Lazada/TikTok) di chat ini."
+        )
+        await query.message.edit_text(text, parse_mode="Markdown")
+        
+    elif data == "menu_admin":
+        await query.message.edit_text("⚙️ Menu Admin Access. (Pengaturan tambahan dapat dikonfigurasi di sini)")
+
+    elif data == "kembali_menu_utama":
+        keyboard = [
+            [InlineKeyboardButton("🔍 Scan Kategori & Diskon", callback_data="menu_scan")],
+            [InlineKeyboardButton("🔗 Input Link Produk Manual", callback_data="menu_manual")],
+            [InlineKeyboardButton("⚙️ Admin Access", callback_data="menu_admin")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        text = "🎛 *CONTROL PANEL ADMIN*\nPilih opsi utama manajemen bot:"
+        await query.message.edit_text(text, parse_mode="Markdown", reply_markup=reply_markup)
+
+    elif data.startswith("scan_"):
+        await query.message.reply_text(f"⏳ Fitur '{data}' sedang dijalankan... (Logika scraper otomatis akan ditambahkan di tahap berikutnya)")
+
+
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if ADMIN_IDS and user_id not in ADMIN_IDS:
+        return
+
+    text = update.message.text.strip()
+    urls = re.findall(r'https?://[^\s]+', text)
+    
+    if not urls:
+        await update.message.reply_text("❌ Link tidak valid. Mohon kirimkan URL produk yang benar.")
+        return
+
+    target_url = urls[0]
+    await update.message.reply_text("⏳ Mengambil data produk asli dari link...")
 
     try:
-        # Kirim Foto + Caption + Inline Buttons ke Channel
-        await app.bot.send_photo(
-            chat_id=config.CHANNEL_ID,
-            photo=deal_data["image_url"],
+        product_data = fetch_single_product_manual(target_url)
+        if not product_data:
+            await update.message.reply_text("❌ Gagal mengekstrak data dari link tersebut.")
+            return
+
+        caption, buttons = format_caption_and_buttons(product_data)
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        # Memposting menggunakan CHANNEL_ID dari config.py
+        await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=product_data["image_url"],
             caption=caption,
-            parse_mode="HTML",
+            parse_mode="Markdown",
             reply_markup=reply_markup
         )
-        # Simpan ke DB agar tidak duplikat
-        add_posted_item(main_product_id, title)
-        logging.info(f"✅ [SUCCESS] Promo '{title}' berhasil diblast ke {config.CHANNEL_ID}")
+        await update.message.reply_text("✅ Produk berhasil diposting ke Channel!")
+
     except Exception as e:
-        logging.error(f"❌ [ERROR] Gagal blast ke channel: {e}")
+        logger.error(f"❌ Error di handle_text_message: {e}")
+        await update.message.reply_text(f"❌ Terjadi kesalahan saat memposting. Pastikan bot sudah dijadikan Admin di Channel Anda.")
 
 
-# --- HANDLER COMMANDS ADMIN (CONTROL PANEL) ---
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
+async def handle_video_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if ADMIN_IDS and user_id not in ADMIN_IDS:
         return
-    await update.message.reply_text(
-        "👋 **Selamat datang di Control Panel Admin!**\n\n"
-        "Gunakan perintah berikut untuk mengontrol Bot Mesin Pencari Promo:\n"
-        "🔹 `/config` - Lihat setting aktif saat ini\n"
-        "🔹 `/set_category <sport/skincare/hobby>` - Ubah kategori target\n"
-        "🔹 `/set_discount <angka>` - Ubah diskon minimal (%)\n"
-        "🔹 `/set_platform <all/shopee/tokopedia/tiktok>` - Pilih platform target\n"
-        "🔹 `/scan_now` - Paksa bot langsung blast promo sekarang\n"
-        "🔹 `/pause` / `/resume` - Matikan/Jalankan auto-blast",
-        parse_mode="Markdown"
-    )
 
-async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
+    message = update.message
+    video_file_id = message.video.file_id if message.video else None
+    caption_text = message.caption or ""
+
+    if not video_file_id:
+        await message.reply_text("❌ Mohon sertakan video bersamaan dengan link produk di caption.")
         return
-    s = get_settings()
-    status_str = "⏸️ PAUSED (Nonaktif)" if s.get("is_paused") else "🟢 ACTIVE (Berjalan)"
-    
-    msg = (
-        "⚙️ **STATUS & SETTING SEARCH ENGINE:**\n\n"
-        f"📌 **Status Bot:** `{status_str}`\n"
-        f"🏷️ **Kategori Target:** `{s.get('category').upper()}`\n"
-        f"💥 **Diskon Minimal:** `{s.get('min_discount')}%`\n"
-        f"🛒 **Platform Target:** `{s.get('platform').upper()}`\n\n"
-        f"📢 **Channel Blast:** `{config.CHANNEL_ID}`"
-    )
-    await update.message.reply_text(msg, parse_mode="Markdown")
 
-async def cmd_set_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args:
-        await update.message.reply_text("Format: `/set_category <sport/skincare/hobby>`", parse_mode="Markdown")
-        return
-    cat = context.args[0].lower()
-    update_setting("category", cat)
-    await update.message.reply_text(f"✅ Kategori berhasil diubah ke: *{cat.upper()}*", parse_mode="Markdown")
+    await message.reply_text("⏳ Memproses video dan data produk Anda...")
 
-async def cmd_set_discount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args or not context.args[0].isdigit():
-        await update.message.reply_text("Format: `/set_discount <angka>` (Contoh: `/set_discount 30`)", parse_mode="Markdown")
-        return
-    disc = int(context.args[0])
-    update_setting("min_discount", disc)
-    await update.message.reply_text(f"✅ Diskon minimal berhasil diubah ke: *{disc}%*", parse_mode="Markdown")
+    urls = re.findall(r'https?://[^\s]+', caption_text)
+    product_data = None
+    if urls:
+        product_data = fetch_single_product_manual(urls[0])
 
-async def cmd_set_platform(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args or context.args[0].lower() not in ['all', 'shopee', 'tokopedia', 'tiktok']:
-        await update.message.reply_text("Format: `/set_platform <all/shopee/tokopedia/tiktok>`", parse_mode="Markdown")
-        return
-    plat = context.args[0].lower()
-    update_setting("platform", plat)
-    await update.message.reply_text(f"✅ Platform target berhasil diubah ke: *{plat.upper()}*", parse_mode="Markdown")
+    if not product_data:
+        product_data = {
+            "platform": "tiktok",
+            "badge": "🎵 TikTok Shop",
+            "title": "Rekomendasi Video Produk Spesial",
+            "affiliate_url": urls[0] if urls else "https://tiktok.com",
+            "original_url": urls[0] if urls else "https://tiktok.com"
+        }
 
-async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    update_setting("is_paused", 1)
-    await update.message.reply_text("⏸️ Auto-blast di-pause.")
+    title = product_data.get("title", "Produk Pilihan")
+    aff_url = product_data.get("affiliate_url", "")
+    badge = product_data.get("badge", "🎵 TikTok Shop")
+    desc = product_data.get("description", "Ulasan lengkap produk berkualitas tinggi ada pada video di atas. Amankan promonya sekarang juga!")
 
-async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    update_setting("is_paused", 0)
-    await update.message.reply_text("🟢 Auto-blast di-resume.")
+    formatted_caption = f"🎬 *VIDEO REVIEW PRODUK*\n\n"
+    formatted_caption += f"📦 *Judul:* {title}\n\n"
+    formatted_caption += f"📝 *Deskripsi:*\n_{desc}_\n\n"
+    formatted_caption += f"🔗 *Link Pembelian ({badge}):*\n{aff_url}"
 
-async def cmd_scan_now(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    await update.message.reply_text("🔍 Memulai proses pencarian & blast sekarang...")
-    await job_auto_blast(context.application)
+    buttons = [[InlineKeyboardButton("🛒 Cek Produk & Beli Disini", url=aff_url)]]
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    try:
+        # Memposting menggunakan CHANNEL_ID dari config.py
+        await context.bot.send_video(
+            chat_id=CHANNEL_ID,
+            video=video_file_id,
+            caption=formatted_caption,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        await message.reply_text("✅ Video berhasil diposting ke Channel!")
+    except Exception as e:
+        logger.error(f"❌ Error di handle_video_message: {e}")
+        await message.reply_text(f"❌ Terjadi kesalahan saat mengirim video. Pastikan bot adalah Admin di Channel.")
 
 
-# --- SETUP SCHEDULER ---
-async def post_init(app: Application):
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(job_auto_blast, 'interval', minutes=30, args=[app])
-    scheduler.start()
-    logging.info("⏰ AsyncIOScheduler berhasil diaktifkan!")
-
-
-# --- MAIN RUNNER ---
 def main():
-    # 1. Nyalakan server web palsu agar bot lolos sebagai Web Service gratis di Render
-    keep_alive()
-
-    # 2. Inisialisasi Database
     init_db()
+    # Menjalankan bot menggunakan BOT_TOKEN dari config.py
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    # 3. Atur Custom Request Timeout (Untuk mencegah error TimedOut dari Telegram)
-    request = HTTPXRequest(
-        connect_timeout=60.0,
-        read_timeout=60.0
-    )
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CallbackQueryHandler(button_callback))
+    application.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_video_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_text_message))
 
-    # 4. Inisialisasi Telegram Application
-    app = (
-        Application.builder()
-        .token(config.BOT_TOKEN)
-        .request(request)
-        .post_init(post_init)
-        .build()
-    )
-
-    # 5. Register Command Handlers
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("config", cmd_config))
-    app.add_handler(CommandHandler("set_category", cmd_set_category))
-    app.add_handler(CommandHandler("set_discount", cmd_set_discount))
-    app.add_handler(CommandHandler("set_platform", cmd_set_platform))
-    app.add_handler(CommandHandler("pause", cmd_pause))
-    app.add_handler(CommandHandler("resume", cmd_resume))
-    app.add_handler(CommandHandler("scan_now", cmd_scan_now))
-
-    print("🤖 Bot Diskon Kiky Multi-Platform Aktif & Berjalan...")
-    app.run_polling()
+    logger.info("🤖 Bot Berjalan Sempurna dengan API Fetcher dan Menu Aktif!")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
