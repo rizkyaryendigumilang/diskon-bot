@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Affiliate Bot Engine — Autonomous Multi-Marketplace Dashboard</title>
+  
+  <!-- SEO & Meta -->
+  <meta name="description" content="Autonomous multi-marketplace affiliate scraping, link conversion, and Telegram auto-poster dashboard.">
+  <meta property="og:title" content="Affiliate Bot Engine">
+  <meta property="og:description" content="Flat 2D Dashboard for Affiliate Automation.">
+  <meta property="og:type" content="website">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              primary: '#1A1A1A',
+              secondary: '#4A4A4A',
+              tertiary: '#0066FF',
+              surface: '#FFFFFF',
+              canvas: '#F8F9FA',
+              border: '#E2E8F0',
+              shopee: '#EE4D2D',
+              tokopedia: '#03AC0E',
+              blibli: '#0095DC',
+              lazada: '#F57224',
+              tiktok: '#111111'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+          },
+          borderRadius: {
+            DEFAULT: '2px',
+            'sm': '2px',
+            'md': '4px',
+            'lg': '6px',
+            'none': '0px'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Strict Flat Design Variables & Rules */
+    :root {
+      --primary: #1A1A1A;
+      --secondary: #4A4A4A;
+      --accent: #0066FF;
+      --border: #E2E8F0;
+      --border-dark: #1A1A1A;
+      --surface: #FFFFFF;
+      --radius: 2px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: #F8F9FA;
+      color: #1A1A1A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      min-height: 100dvh;
+    }
+
+    /* Flat Buttons */
+    .btn-flat {
+      border: 1px solid var(--primary);
+      border-radius: var(--radius);
+      padding: 0.625rem 1.25rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+    }
+    .btn-flat:active {
+      transform: translateY(1px);
+    }
+    .btn-flat-primary {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      border-color: #1A1A1A;
+    }
+    .btn-flat-primary:hover {
+      background-color: #333333;
+    }
+    .btn-flat-accent {
+      background-color: #0066FF;
+      color: #FFFFFF;
+      border-color: #0066FF;
+    }
+    .btn-flat-accent:hover {
+      background-color: #0052CC;
+    }
+    .btn-flat-outline {
+      background-color: #FFFFFF;
+      color: #1A1A1A;
+      border-color: #CBD5E1;
+    }
+    .btn-flat-outline:hover {
+      background-color: #F1F5F9;
+      border-color: #94A3B8;
+    }
+    .btn-flat-danger {
+      background-color: #DC2626;
+      color: #FFFFFF;
+      border-color: #DC2626;
+    }
+    .btn-flat-danger:hover {
+      background-color: #B91C1C;
+    }
+
+    /* Flat Cards */
+    .card-flat {
+      background-color: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: var(--radius);
+      box-shadow: none;
+    }
+
+    /* Flat Inputs */
+    .input-flat {
+      border: 1px solid #CBD5E1;
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      outline: none;
+      background-color: #FFFFFF;
+      transition: border-color 150ms ease;
+    }
+    .input-flat:focus {
+      border-color: #0066FF;
+      outline: 2px solid #E0ECFF;
+    }
+
+    /* Active Nav Tab */
+    .nav-tab.active {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      border-color: #1A1A1A;
+    }
+
+    /* Badges */
+    .badge-flat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 2px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    /* Custom Toast */
+    #toastContainer {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .toast-box {
+      border-left: 4px solid #0066FF;
+      background: #1A1A1A;
+      color: #FFFFFF;
+      padding: 0.75rem 1.25rem;
+      border-radius: 2px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: fadeIn 200ms ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-[100dvh]">
+
+  <!-- Top Announcement Bar -->
+  <div class="bg-brand-primary text-white text-xs py-1.5 px-4 text-center font-mono flex items-center justify-center gap-3 border-b border-neutral-800">
+    <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span>ENGINE CORE: SCRAPLING V0.4 &middot; CHANNEL TARGET: <strong class="text-emerald-400">@infodiskonbykiky</strong></span>
+    <span class="hidden md:inline">&middot; DUAL-PATH CONVERSION ACTIVE</span>
+  </div>
+
+  <!-- Main Navigation -->
+  <header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+    <div class="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Brand -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('landing')">
+        <div class="w-8 h-8 bg-brand-primary text-white flex items-center justify-center font-mono font-bold text-base rounded-[2px]">
+          <svg class="w-5 h-5 text-brand-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="font-bold text-base tracking-tight text-brand-primary">DISKONBOT</span>
+          <span class="text-xs font-mono text-brand-secondary ml-1 px-1.5 py-0.5 bg-slate-100 rounded-[2px] border border-slate-200">AFFILIATE</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
+        <button onclick="switchView('landing')" id="tab-landing" class="nav-tab px-3 py-1.5 rounded-[2px] text-brand-secondary hover:text-brand-primary">
+          Overview
+        </button>
+        <button onclick="switchView('engine')" id="tab-engine" class="nav-tab px-3 py-1.5 rounded-[2px] text-brand-secondary hover:text-brand-primary">
+          Control Engine
+        </button>
+        <button onclick="switchView('converter')" id="tab-converter" class="nav-tab px-3 py-1.5 rounded-[2px] text-brand-secondary hover:text-brand-primary">
+          Link Converter
+        </button>
+        <button onclick="switchView('monitor')" id="tab-monitor" class="nav-tab px-3 py-1.5 rounded-[2px] text-brand-secondary hover:text-brand-primary">
+          Scraped Data
+        </button>
+      </nav>
+
+      <!-- Auth & Quick Status Button -->
+      <div class="flex items-center gap-2">
+        <div id="liveEngineBadge" class="hidden sm:flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-[2px]">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="headerEngineStatus">RUNNING</span>
+        </div>
+
+        <button id="authBtn" onclick="handleAuthAction()" class="btn-flat btn-flat-primary text-xs">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+          </svg>
+          <span id="authBtnText">Admin Portal</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- =================================================================== -->
+  <!-- 1. LANDING PAGE VIEW                                                -->
+  <!-- =================================================================== -->
+  <main id="view-landing" class="view-panel flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-8 md:py-12">
+    
+    <!-- Hero Section: Split Screen -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6 md:py-16 border-b border-slate-200">
+      
+      <!-- Hero Left: Text & CTA -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-mono font-medium rounded-[2px]">
+          <span class="w-1.5 h-1.5 bg-brand-tertiary rounded-full"></span>
+          MULTI-MARKETPLACE AUTONOMOUS BOT SYSTEM
+        </div>
+
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-brand-primary leading-tight">
+          High-Velocity Affiliate Scraper & Telegram Dispatcher.
+        </h1>
+
+        <p class="text-base sm:text-lg text-brand-secondary max-w-xl leading-relaxed">
+          Monitor real-time discounts across Shopee, Tokopedia, Blibli, Lazada, and TikTok. Automatically un-shortens mobile redirect links, injects your affiliate tags, and dispatches rich visual deals directly to your channel.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-wrap gap-3 pt-2">
+          <button onclick="switchView('engine')" class="btn-flat btn-flat-accent text-sm">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Launch Engine Console
+          </button>
+          
+          <a href="https://t.me/infodiskonbykiky" target="_blank" rel="noopener noreferrer" class="btn-flat btn-flat-outline text-sm">
+            <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+            </svg>
+            Channel: @infodiskonbykiky
+          </a>
+        </div>
+
+        <!-- Technical Metadata -->
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 font-mono text-xs text-brand-secondary">
+          <div>
+            <span class="block text-slate-400">PARSER</span>
+            <span class="font-semibold text-brand-primary">Scrapling 0.4</span>
+          </div>
+          <div>
+            <span class="block text-slate-400">HEADLESS</span>
+            <span class="font-semibold text-brand-primary">Chromium Patch</span>
+          </div>
+          <div>
+            <span class="block text-slate-400">DATABASE</span>
+            <span class="font-semibold text-brand-primary">SQLite Dedup</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Hero Right: 2D Flat Geometric Architecture Blueprint -->
+      <div class="lg:col-span-5">
+        <div class="card-flat p-6 border-2 border-brand-primary bg-white">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+            <span class="text-xs font-mono font-bold tracking-wider uppercase text-brand-primary">PIPELINE ARCHITECTURE</span>
+            <span class="badge-flat bg-emerald-100 text-emerald-800">ACTIVE 2D</span>
+          </div>
+
+          <div class="space-y-3 py-4 text-xs font-mono">
+            <!-- Node 1 -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-[2px] flex items-center justify-between">
+              <div>
+                <span class="font-bold text-brand-primary block">1. INGEST & DUAL-PATH</span>
+                <span class="text-slate-500">Shortlink un-shorten & ID extract</span>
+              </div>
+              <span class="badge-flat bg-blue-100 text-blue-800">HTTPX / REDIRECT</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-center text-slate-400">&darr;</div>
+
+            <!-- Node 2 -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-[2px] flex items-center justify-between">
+              <div>
+                <span class="font-bold text-brand-primary block">2. SCRAPLING ADAPTIVE FETCH</span>
+                <span class="text-slate-500">StealthyFetcher + Cloudflare bypass</span>
+              </div>
+              <span class="badge-flat bg-amber-100 text-amber-800">STEALTH DOM</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-center text-slate-400">&darr;</div>
+
+            <!-- Node 3 -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-[2px] flex items-center justify-between">
+              <div>
+                <span class="font-bold text-brand-primary block">3. DEDUP & TAG INJECTION</span>
+                <span class="text-slate-500">SQLite check + affiliate tag affix</span>
+              </div>
+              <span class="badge-flat bg-purple-100 text-purple-800">ZERO DUPES</span>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-center text-slate-400">&darr;</div>
+
+            <!-- Node 4 -->
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-[2px] flex items-center justify-between">
+              <div>
+                <span class="font-bold text-brand-primary block">4. TELEGRAM DISPATCH</span>
+                <span class="text-slate-500">Photo + Formatted Markdown + CTA</span>
+              </div>
+              <span class="badge-flat bg-emerald-100 text-emerald-800">200 OK</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-200 flex justify-between items-center text-xs font-mono text-slate-500">
+            <span>Marketplaces: 5 Active</span>
+            <span class="text-brand-tertiary cursor-pointer font-semibold hover:underline" onclick="switchView('converter')">Test Live Converter &rarr;</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Features Section: Zig-Zag / Card Grid -->
+    <section class="py-12 border-b border-slate-200 space-y-8">
+      <div>
+        <span class="text-xs font-mono uppercase text-brand-tertiary font-bold tracking-wider">ENGINE CAPABILITIES</span>
+        <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-brand-primary mt-1">Built for Reliable Affiliate Scale.</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Feature 1 -->
+        <div class="card-flat p-6 space-y-3 border-t-4 border-t-brand-shopee">
+          <div class="w-10 h-10 bg-orange-50 border border-orange-200 flex items-center justify-center rounded-[2px] text-brand-shopee">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-brand-primary">Adaptive Multi-Marketplace</h3>
+          <p class="text-sm text-brand-secondary">
+            Scrapes Shopee, Tokopedia, Blibli, Lazada, and TikTok simultaneously. Normalizes strike-through prices, promotional discounts, and verified stock.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="card-flat p-6 space-y-3 border-t-4 border-t-brand-tertiary">
+          <div class="w-10 h-10 bg-blue-50 border border-blue-200 flex items-center justify-center rounded-[2px] text-brand-tertiary">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-brand-primary">Stealth Un-Shortener</h3>
+          <p class="text-sm text-brand-secondary">
+            Decodes mobile shortlinks (s.shopee.co.id, bit.ly, vt.tiktok.com) through headless Patchright browser sessions, preventing CAPTCHAs and 403 blocks.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="card-flat p-6 space-y-3 border-t-4 border-t-emerald-600">
+          <div class="w-10 h-10 bg-emerald-50 border border-emerald-200 flex items-center justify-center rounded-[2px] text-emerald-600">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-brand-primary">SQLite Anti-Duplication</h3>
+          <p class="text-sm text-brand-secondary">
+            Guarantees zero repeat postings on your Telegram channel. Every deal is hash-logged with timestamp and product identifier in local SQLite.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Metrics / Architecture Benchmarks -->
+    <section class="py-12 border-b border-slate-200">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="card-flat p-5 border-l-4 border-l-brand-primary">
+          <span class="text-xs font-mono text-slate-500 uppercase block">TARGET CHANNEL</span>
+          <span class="text-xl sm:text-2xl font-bold font-mono text-brand-primary">@infodiskon</span>
+          <span class="text-xs text-slate-500 mt-1 block">Live subscriber broadcast</span>
+        </div>
+
+        <div class="card-flat p-5 border-l-4 border-l-brand-tertiary">
+          <span class="text-xs font-mono text-slate-500 uppercase block">SUPPORTED STORES</span>
+          <span class="text-xl sm:text-2xl font-bold font-mono text-brand-primary">5 E-Commerce</span>
+          <span class="text-xs text-slate-500 mt-1 block">Shopee, Tokped, Blibli, Laz, TT</span>
+        </div>
+
+        <div class="card-flat p-5 border-l-4 border-l-emerald-600">
+          <span class="text-xs font-mono text-slate-500 uppercase block">DUPLICATE RATE</span>
+          <span class="text-xl sm:text-2xl font-bold font-mono text-emerald-600">0.00%</span>
+          <span class="text-xs text-slate-500 mt-1 block">Hardware-level SQLite filter</span>
+        </div>
+
+        <div class="card-flat p-5 border-l-4 border-l-amber-500">
+          <span class="text-xs font-mono text-slate-500 uppercase block">FETCH ENGINE</span>
+          <span class="text-xl sm:text-2xl font-bold font-mono text-brand-primary">Headless 2D</span>
+          <span class="text-xs text-slate-500 mt-1 block">Adaptive DOM re-locator</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Pricing / Deployment Tiers -->
+    <section class="py-12 border-b border-slate-200 space-y-8">
+      <div class="text-center max-w-xl mx-auto space-y-2">
+        <span class="text-xs font-mono uppercase text-brand-tertiary font-bold tracking-wider">DEPLOYMENT SCHEME</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-brand-primary">Deployment & Operational Tiers</h2>
+        <p class="text-sm text-brand-secondary">Choose the deployment profile matching your affiliate traffic volume.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+        
+        <!-- Tier 1 -->
+        <div class="card-flat p-6 flex flex-col justify-between space-y-6">
+          <div class="space-y-4">
+            <span class="badge-flat bg-slate-100 text-slate-700">LOCAL PC NODE</span>
+            <div class="text-2xl font-bold font-mono text-brand-primary">Rp 0 <span class="text-xs font-sans font-normal text-slate-500">/ forever</span></div>
+            <p class="text-xs text-brand-secondary">Run directly on your local workstation for personal affiliate channels.</p>
+            <ul class="text-xs space-y-2 text-slate-600 font-mono">
+              <li>&check; Headless Chromium engine</li>
+              <li>&check; Manual & video converter</li>
+              <li>&check; Local SQLite persistence</li>
+            </ul>
+          </div>
+          <button onclick="switchView('engine')" class="btn-flat btn-flat-outline w-full text-xs">Run Local Node</button>
+        </div>
+
+        <!-- Tier 2 (Highlighted) -->
+        <div class="card-flat p-6 border-2 border-brand-tertiary bg-blue-50/20 flex flex-col justify-between space-y-6 relative">
+          <div class="absolute -top-3 right-4 badge-flat bg-brand-tertiary text-white">RECOMMENDED</div>
+          <div class="space-y-4">
+            <span class="badge-flat bg-blue-100 text-blue-800">VPS CLOUD AUTOPILOT</span>
+            <div class="text-2xl font-bold font-mono text-brand-primary">Rp 75.000 <span class="text-xs font-sans font-normal text-slate-500">/ month est.</span></div>
+            <p class="text-xs text-brand-secondary">Always-on 24/7 background cron scanning hosted on cloud VPS.</p>
+            <ul class="text-xs space-y-2 text-brand-primary font-mono font-medium">
+              <li>&check; 24/7 autonomous deal scanner</li>
+              <li>&check; Multi-marketplace comparisons</li>
+              <li>&check; Docker & systemd ready</li>
+              <li>&check; Web REST control center</li>
+            </ul>
+          </div>
+          <button onclick="switchView('engine')" class="btn-flat btn-flat-accent w-full text-xs">Configure Cloud Node</button>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="card-flat p-6 flex flex-col justify-between space-y-6">
+          <div class="space-y-4">
+            <span class="badge-flat bg-slate-100 text-slate-700">ENTERPRISE CLUSTER</span>
+            <div class="text-2xl font-bold font-mono text-brand-primary">Custom <span class="text-xs font-sans font-normal text-slate-500">/ multi-channel</span></div>
+            <p class="text-xs text-brand-secondary">High-frequency distributed scraping across 10+ Telegram channels.</p>
+            <ul class="text-xs space-y-2 text-slate-600 font-mono">
+              <li>&check; Rotating residential proxies</li>
+              <li>&check; Multi-channel broadcasting</li>
+              <li>&check; Custom webhook dispatchers</li>
+            </ul>
+          </div>
+          <button onclick="switchView('engine')" class="btn-flat btn-flat-outline w-full text-xs">Contact Architecture</button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Final CTA Banner -->
+    <section class="py-12">
+      <div class="card-flat p-8 sm:p-10 bg-brand-primary text-white border-none flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-2 max-w-xl">
+          <h2 class="text-2xl font-bold tracking-tight">Ready to Dispatch Affiliate Deals?</h2>
+          <p class="text-sm text-slate-300">Open the control dashboard to start the engine, convert single URLs, or review previously posted deals.</p>
+        </div>
+        <button onclick="switchView('engine')" class="btn-flat bg-white text-brand-primary hover:bg-slate-100 border-white text-sm shrink-0">
+          Open Engine Dashboard &rarr;
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- 2. CONTROL ENGINE DASHBOARD VIEW                                    -->
+  <!-- =================================================================== -->
+  <main id="view-engine" class="view-panel hidden flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    
+    <!-- View Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-brand-primary">Scraper Engine Control</h1>
+          <span id="engineStatusBadge" class="badge-flat bg-emerald-100 text-emerald-800">ONLINE</span>
+        </div>
+        <p class="text-xs text-brand-secondary mt-0.5 font-mono">Autonomous background worker parameters and manual scan dispatching.</p>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="flex items-center gap-2">
+        <button onclick="controlEngine('start')" class="btn-flat btn-flat-primary text-xs">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path d="M4.5 3.5v13l11-6.5-11-6.5z"/></svg>
+          Start Engine
+        </button>
+        <button onclick="controlEngine('pause')" class="btn-flat btn-flat-outline text-xs">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/></svg>
+          Pause
+        </button>
+        <button onclick="controlEngine('stop')" class="btn-flat btn-flat-danger text-xs">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 5h10v10H5z"/></svg>
+          Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Parameter Configuration & Quick Scans -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Left: Engine Settings Form -->
+      <div class="lg:col-span-5 card-flat p-5 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <span class="text-xs font-mono font-bold uppercase text-brand-primary">SCANNER PARAMETERS</span>
+          <span class="text-[11px] font-mono text-slate-400">DATABASE SYNCED</span>
+        </div>
+
+        <form id="settingsForm" onsubmit="saveSettings(event)" class="space-y-4 text-xs font-mono">
+          <div>
+            <label class="block font-bold text-brand-primary mb-1">TARGET CATEGORY / KEYWORD</label>
+            <input type="text" id="settingCategory" class="input-flat w-full font-mono" placeholder="e.g. sport, sepatu, kaos pria, elektronik" required>
+            <span class="text-[11px] text-slate-500 mt-0.5 block">Searched across all 5 e-commerce marketplaces.</span>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="font-bold text-brand-primary">MINIMUM DISCOUNT THRESHOLD</label>
+              <span id="minDiscountDisplay" class="font-bold text-brand-tertiary">20%</span>
+            </div>
+            <input type="range" id="settingMinDiscount" min="5" max="90" step="5" value="20" class="w-full accent-brand-tertiary cursor-pointer" oninput="document.getElementById('minDiscountDisplay').innerText = this.value + '%'">
+          </div>
+
+          <div>
+            <label class="block font-bold text-brand-primary mb-1">AUTO-PILOT INTERVAL</label>
+            <select id="settingInterval" class="input-flat w-full font-mono bg-white">
+              <option value="5">Every 5 Minutes (Aggressive)</option>
+              <option value="15">Every 15 Minutes</option>
+              <option value="30" selected>Every 30 Minutes (Standard)</option>
+              <option value="60">Every 1 Hour</option>
+              <option value="120">Every 2 Hours</option>
+            </select>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="btn-flat btn-flat-accent w-full text-xs">
+              Save Parameters to SQLite
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Manual Quick Scan Trigger Grid -->
+      <div class="lg:col-span-7 card-flat p-5 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <span class="text-xs font-mono font-bold uppercase text-brand-primary">INSTANT DISPATCH TRIGGERS</span>
+          <span class="text-[11px] font-mono text-slate-400">1-CLICK SCAN & POST</span>
+        </div>
+
+        <p class="text-xs text-brand-secondary">
+          Execute an immediate scrape using Scrapling and automatically publish the best qualifying offer directly to <strong>@infodiskonbykiky</strong>.
+        </p>
+
+        <!-- Triggers Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <button onclick="triggerScan('flashsale')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-brand-shopee py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">⚡ Flash Sale</span>
+              <span class="text-[10px] text-slate-500 font-mono">All Marketplaces</span>
+            </div>
+          </button>
+
+          <button onclick="triggerScan('auto')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-brand-tertiary py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">🔥 Auto Deals</span>
+              <span class="text-[10px] text-slate-500 font-mono">Current Settings</span>
+            </div>
+          </button>
+
+          <button onclick="triggerScan('20')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-emerald-600 py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">🎯 Min. 20% OFF</span>
+              <span class="text-[10px] text-slate-500 font-mono">Moderate Deals</span>
+            </div>
+          </button>
+
+          <button onclick="triggerScan('30')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-amber-500 py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">🔥 Min. 30% OFF</span>
+              <span class="text-[10px] text-slate-500 font-mono">High Discount</span>
+            </div>
+          </button>
+
+          <button onclick="triggerScan('50')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-red-500 py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">⚡ Min. 50% OFF</span>
+              <span class="text-[10px] text-slate-500 font-mono">Half Price Deals</span>
+            </div>
+          </button>
+
+          <button onclick="triggerScan('70')" class="btn-flat btn-flat-outline text-xs justify-start border-l-4 border-l-purple-600 py-3">
+            <div class="text-left">
+              <span class="font-bold block text-brand-primary">💎 Min. 70% OFF</span>
+              <span class="text-[10px] text-slate-500 font-mono">Super Clearance</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Scan Output Terminal -->
+        <div class="p-3 bg-brand-primary text-slate-200 text-xs font-mono rounded-[2px] space-y-1">
+          <div class="flex items-center justify-between text-slate-400 border-b border-neutral-800 pb-1">
+            <span>TERMINAL LOG</span>
+            <span id="scanTimestamp">IDLE</span>
+          </div>
+          <div id="scanConsole" class="py-1 text-slate-300 min-h-[40px] flex items-center">
+            Ready to execute live scans. Select any trigger above.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- 3. LINK CONVERTER & MANUAL POST STUDIO VIEW                         -->
+  <!-- =================================================================== -->
+  <main id="view-converter" class="view-panel hidden flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-brand-primary">Link Converter & Manual Dispatcher</h1>
+      <p class="text-xs text-brand-secondary font-mono mt-0.5">Paste raw product URLs or mobile shortlinks to convert to affiliate tags and preview live metadata.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Input & Conversion Card -->
+      <div class="lg:col-span-6 card-flat p-5 space-y-4">
+        <span class="text-xs font-mono font-bold uppercase text-brand-primary block border-b border-slate-200 pb-2">INPUT RAW PRODUCT LINK</span>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-mono font-bold text-brand-primary mb-1">MARKETPLACE URL / SHORTLINK</label>
+            <textarea id="inputRawUrl" rows="3" class="input-flat w-full font-mono text-xs" placeholder="Paste Shopee, Tokopedia, Blibli, Lazada, or TikTok link (e.g. https://s.shopee.co.id/xxx or https://shopee.co.id/product/...)"></textarea>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="handleConvertOnly()" class="btn-flat btn-flat-primary text-xs">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              1. Convert Link
+            </button>
+            <button onclick="handleScrapePreview()" class="btn-flat btn-flat-accent text-xs">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              2. Fetch & Preview Data
+            </button>
+          </div>
+        </div>
+
+        <!-- Converted URL Output -->
+        <div id="conversionResultCard" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-[2px] space-y-2 font-mono text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-brand-primary">CONVERTED AFFILIATE URL</span>
+            <span id="detectedPlatformBadge" class="badge-flat bg-orange-100 text-orange-800">SHOPEE</span>
+          </div>
+          <div id="convertedUrlText" class="p-2 bg-white border border-slate-200 break-all select-all text-brand-primary"></div>
+          <div class="flex gap-2">
+            <button onclick="copyConvertedUrl()" class="btn-flat btn-flat-outline text-xs py-1">
+              Copy to Clipboard
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Preview & Channel Dispatch Card -->
+      <div class="lg:col-span-6 card-flat p-5 space-y-4">
+        <span class="text-xs font-mono font-bold uppercase text-brand-primary block border-b border-slate-200 pb-2">PRODUCT PREVIEW & TELEGRAM POST</span>
+
+        <div id="productPreviewContainer" class="space-y-4">
+          <div class="p-8 text-center border-2 border-dashed border-slate-200 rounded-[2px] text-slate-400 text-xs font-mono">
+            No product fetched yet. Paste a link on the left and click "Fetch & Preview Data".
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- 4. SCRAPED DATA MONITOR VIEW                                        -->
+  <!-- =================================================================== -->
+  <main id="view-monitor" class="view-panel hidden flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-brand-primary">Scraped & Posted Deals Monitoring</h1>
+        <p class="text-xs text-brand-secondary font-mono mt-0.5">Real-time records from SQLite anti-duplication registry.</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <input type="text" id="tableSearchInput" oninput="loadScrapedItems()" placeholder="Search title or ID..." class="input-flat text-xs font-mono w-48 sm:w-64">
+        <button onclick="loadScrapedItems()" class="btn-flat btn-flat-outline text-xs">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card-flat overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+            <tr>
+              <th class="py-3 px-4">#</th>
+              <th class="py-3 px-4">Marketplace</th>
+              <th class="py-3 px-4">Product ID</th>
+              <th class="py-3 px-4">Product Title</th>
+              <th class="py-3 px-4">Date Posted</th>
+              <th class="py-3 px-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="itemsTableBody" class="divide-y divide-slate-200">
+            <tr>
+              <td colspan="6" class="py-8 text-center text-slate-400">Loading records...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- 5. ADMIN LOGIN MODAL                                                -->
+  <!-- =================================================================== -->
+  <div id="loginModal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="card-flat max-w-sm w-full p-6 space-y-4 bg-white border-2 border-brand-primary">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+        <span class="font-bold text-sm tracking-tight text-brand-primary">ADMIN CONSOLE LOGIN</span>
+        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-brand-primary font-bold text-base">&times;</button>
+      </div>
+
+      <p class="text-xs text-brand-secondary">
+        Authenticate using your Telegram Admin ID (<code>8503838227</code>) or master administrative password.
+      </p>
+
+      <form onsubmit="handleLoginSubmit(event)" class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="block font-bold mb-1 text-brand-primary">TELEGRAM ID OR PASSWORD</label>
+          <input type="password" id="loginInput" class="input-flat w-full font-mono" placeholder="Enter Admin ID or Password" required>
+        </div>
+
+        <div id="loginErrorText" class="hidden text-[11px] text-red-600 font-mono"></div>
+
+        <button type="submit" class="btn-flat btn-flat-primary w-full text-xs mt-2">
+          Verify & Access Console
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-white border-t border-slate-200 text-xs font-mono text-slate-500 py-6">
+    <div class="max-w-[1280px] mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        &copy; 2026 <strong>DISKONBOT AFFILIATE</strong> &middot; Automated Multi-Marketplace System.
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="https://t.me/infodiskonbykiky" target="_blank" class="hover:text-brand-primary">Telegram Channel</a>
+        <span>&middot;</span>
+        <span class="text-brand-tertiary">Engine: Scrapling v0.4</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- =================================================================== -->
+  <!-- JAVASCRIPT APP LOGIC                                                -->
+  <!-- =================================================================== -->
+  <script>
+    // State management
+    const state = {
+      view: 'landing',
+      authToken: localStorage.getItem('affiliate_auth_token') || null,
+      adminId: localStorage.getItem('affiliate_admin_id') || null,
+      engine: {},
+      settings: {},
+      stats: {},
+      cachedProduct: null
+    };
+
+    // Initialize application
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+      fetchStatus();
+      loadScrapedItems();
+
+      // Poll status every 15 seconds
+      setInterval(fetchStatus, 15000);
+    });
+
+    // View Switching
+    function switchView(viewName) {
+      state.view = viewName;
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+
+      const targetView = document.getElementById(`view-${viewName}`);
+      if (targetView) targetView.classList.remove('hidden');
+
+      const targetTab = document.getElementById(`tab-${viewName}`);
+      if (targetTab) targetTab.classList.add('active');
+
+      if (viewName === 'monitor') {
+        loadScrapedItems();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Toast utility
+    function showToast(message, isError = false) {
+      const container = document.getElementById('toastContainer');
+      const box = document.createElement('div');
+      box.className = 'toast-box' + (isError ? ' border-l-red-600' : ' border-l-blue-600');
+      box.innerHTML = `
+        <span>${isError ? '&#9888;' : '&#10003;'}</span>
+        <span>${message}</span>
+      `;
+      container.appendChild(box);
+      setTimeout(() => box.remove(), 4000);
+    }
+
+    // Auth handlers
+    function handleAuthAction() {
+      if (state.authToken) {
+        // Logout
+        localStorage.removeItem('affiliate_auth_token');
+        localStorage.removeItem('affiliate_admin_id');
+        state.authToken = null;
+        state.adminId = null;
+        updateAuthUI();
+        showToast('Logged out from admin session.');
+        switchView('landing');
+      } else {
+        openLoginModal();
+      }
+    }
+
+    function openLoginModal() {
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('loginInput').focus();
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('loginErrorText').classList.add('hidden');
+    }
+
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const val = document.getElementById('loginInput').value.trim();
+      const errEl = document.getElementById('loginErrorText');
+
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username_or_id: val, password: val })
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+          state.authToken = data.token;
+          state.adminId = val;
+          localStorage.setItem('affiliate_auth_token', data.token);
+          localStorage.setItem('affiliate_admin_id', val);
+          updateAuthUI();
+          closeLoginModal();
+          showToast('Authentication successful!');
+          switchView('engine');
+        } else {
+          errEl.innerText = data.detail || 'Login failed. Invalid ID/password.';
+          errEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        errEl.innerText = 'Network connection failed.';
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function updateAuthUI() {
+      const btn = document.getElementById('authBtnText');
+      if (state.authToken) {
+        btn.innerText = 'Logout Admin';
+      } else {
+        btn.innerText = 'Admin Portal';
+      }
+    }
+
+    // Fetch Engine Status & Stats
+    async function fetchStatus() {
+      try {
+        const resp = await fetch('/api/engine/status');
+        const data = await resp.json();
+        state.engine = data.engine;
+        state.settings = data.settings;
+        state.stats = data.stats;
+
+        // Update UI
+        const isRunning = data.engine.is_running;
+        const statusBadge = document.getElementById('engineStatusBadge');
+        const headerStatus = document.getElementById('headerEngineStatus');
+
+        if (isRunning) {
+          statusBadge.className = 'badge-flat bg-emerald-100 text-emerald-800';
+          statusBadge.innerText = 'ONLINE';
+          headerStatus.innerText = 'RUNNING';
+        } else {
+          statusBadge.className = 'badge-flat bg-amber-100 text-amber-800';
+          statusBadge.innerText = 'PAUSED';
+          headerStatus.innerText = 'PAUSED';
+        }
+
+        // Fill settings form if not active
+        if (document.activeElement.id !== 'settingCategory') {
+          document.getElementById('settingCategory').value = data.settings.category || 'sport';
+        }
+        document.getElementById('settingMinDiscount').value = data.settings.min_discount || 20;
+        document.getElementById('minDiscountDisplay').innerText = (data.settings.min_discount || 20) + '%';
+        document.getElementById('settingInterval').value = data.settings.interval || 30;
+
+      } catch (err) {
+        console.warn('Status poll error:', err);
+      }
+    }
+
+    // Engine Controls
+    async function controlEngine(action) {
+      try {
+        const resp = await fetch('/api/engine/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(`Engine state updated: ${action.toUpperCase()}`);
+          fetchStatus();
+        }
+      } catch (err) {
+        showToast('Failed to send engine command.', true);
+      }
+    }
+
+    // Save Settings
+    async function saveSettings(e) {
+      e.preventDefault();
+      const category = document.getElementById('settingCategory').value.trim();
+      const min_discount = parseInt(document.getElementById('settingMinDiscount').value);
+      const interval = parseInt(document.getElementById('settingInterval').value);
+
+      try {
+        const resp = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category,
+            min_discount,
+            interval,
+            is_paused: state.settings.is_paused || 0
+          })
+        });
+        if (resp.ok) {
+          showToast('Settings saved to database.');
+          fetchStatus();
+        }
+      } catch (err) {
+        showToast('Error saving settings.', true);
+      }
+    }
+
+    // Trigger Instant Scan
+    async function triggerScan(mode) {
+      const consoleEl = document.getElementById('scanConsole');
+      const timeEl = document.getElementById('scanTimestamp');
+      
+      consoleEl.innerHTML = `<span class="animate-pulse">Scraping ${mode} mode across marketplaces using Scrapling...</span>`;
+      timeEl.innerText = new Date().toLocaleTimeString();
+
+      try {
+        const resp = await fetch('/api/engine/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: mode,
+            category: document.getElementById('settingCategory').value.trim() || 'sport',
+            post_to_channel: true
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          const deal = data.deal;
+          const offersCount = (deal.offers || []).length;
+          consoleEl.innerHTML = `
+            <span class="text-emerald-400 font-bold">&#10003; DISPATCHED:</span> 
+            "${deal.title}" (${offersCount} offer(s) found). Posted to @infodiskonbykiky.
+          `;
+          showToast('Product successfully dispatched to channel!');
+          loadScrapedItems();
+        } else {
+          consoleEl.innerHTML = `<span class="text-amber-400">&#9888; ${data.message || 'No deals found.'}</span>`;
+          showToast(data.message || 'No deals found.', true);
+        }
+      } catch (err) {
+        consoleEl.innerHTML = `<span class="text-red-400">&#10007; Scan failed: ${err.message}</span>`;
+        showToast('Scan execution failed.', true);
+      }
+    }
+
+    // Link Conversion Only
+    async function handleConvertOnly() {
+      const url = document.getElementById('inputRawUrl').value.trim();
+      if (!url) {
+        showToast('Please enter a product URL first.', true);
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          document.getElementById('conversionResultCard').classList.remove('hidden');
+          document.getElementById('convertedUrlText').innerText = data.affiliate_url;
+          document.getElementById('detectedPlatformBadge').innerText = data.badge;
+          showToast('Affiliate link created!');
+        }
+      } catch (err) {
+        showToast('Link conversion failed.', true);
+      }
+    }
+
+    function copyConvertedUrl() {
+      const text = document.getElementById('convertedUrlText').innerText;
+      navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!');
+    }
+
+    // Scrape Preview & Manual Post
+    async function handleScrapePreview() {
+      const url = document.getElementById('inputRawUrl').value.trim();
+      if (!url) {
+        showToast('Please enter a product URL first.', true);
+        return;
+      }
+
+      const container = document.getElementById('productPreviewContainer');
+      container.innerHTML = `
+        <div class="p-6 text-center border border-slate-200 font-mono text-xs text-brand-secondary">
+          <span class="animate-pulse">Fetching product metadata via StealthyFetcher...</span>
+        </div>
+      `;
+
+      try {
+        const resp = await fetch('/api/scrape/single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+
+        if (data.success && data.product) {
+          const p = data.product;
+          state.cachedProduct = p;
+
+          // Also populate the converted url card
+          document.getElementById('conversionResultCard').classList.remove('hidden');
+          document.getElementById('convertedUrlText').innerText = p.affiliate_url;
+          document.getElementById('detectedPlatformBadge').innerText = p.badge;
+
+          // Render Preview Card
+          container.innerHTML = `
+            <div class="card-flat p-4 border border-slate-300 space-y-3 font-mono text-xs">
+              <div class="flex gap-4">
+                <img src="${p.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400'}" class="w-24 h-24 object-cover border border-slate-200 rounded-[2px]" alt="Product image">
+                <div class="space-y-1 flex-1">
+                  <span class="badge-flat bg-blue-100 text-blue-800">${p.badge}</span>
+                  <h4 class="font-bold text-brand-primary line-clamp-2 text-sm">${p.title}</h4>
+                  <div class="text-emerald-600 font-bold">
+                    ${p.price_promo ? 'Rp ' + p.price_promo.toLocaleString('id-ID') : 'Cek di link'}
+                    ${p.discount_percent ? '<span class="text-red-500 font-normal ml-1">(' + p.discount_percent + '% OFF)</span>' : ''}
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-[11px] text-slate-500 bg-slate-50 p-2 border border-slate-200 line-clamp-2">
+                ${p.description || 'Tidak ada deskripsi toko.'}
+              </div>
+
+              <div class="flex gap-2 pt-2 border-t border-slate-200">
+                <button onclick="postCachedProductToChannel()" class="btn-flat btn-flat-accent text-xs flex-1">
+                  &check; Post Directly to Channel (@infodiskonbykiky)
+                </button>
+              </div>
+            </div>
+          `;
+          showToast('Product data fetched successfully!');
+        } else {
+          container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 text-xs font-mono">Failed to fetch product data.</div>`;
+          showToast('Failed to fetch data.', true);
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 text-xs font-mono">Error: ${err.message}</div>`;
+        showToast('Fetch request failed.', true);
+      }
+    }
+
+    async function postCachedProductToChannel() {
+      if (!state.cachedProduct) return;
+      const p = state.cachedProduct;
+
+      try {
+        const resp = await fetch('/api/scrape/post-to-channel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: p.title,
+            image_url: p.image_url,
+            affiliate_url: p.affiliate_url,
+            price_promo: p.price_promo || 0,
+            discount_percent: p.discount_percent || 0,
+            badge: p.badge || 'Shopee',
+            description: p.description || ''
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast('Dispatched to Telegram Channel!');
+          loadScrapedItems();
+        } else {
+          showToast('Failed to post to Telegram.', true);
+        }
+      } catch (err) {
+        showToast('Telegram post request failed.', true);
+      }
+    }
+
+    // Scraped Data Monitoring Table
+    async function loadScrapedItems() {
+      const search = document.getElementById('tableSearchInput')?.value || '';
+      const tbody = document.getElementById('itemsTableBody');
+
+      try {
+        const resp = await fetch(`/api/items?search=${encodeURIComponent(search)}&limit=50`);
+        const data = await resp.json();
+
+        if (!data.items || data.items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400">No scraped products recorded yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.items.map((item, idx) => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="py-2.5 px-4 text-slate-400">${item.id}</td>
+            <td class="py-2.5 px-4">
+              <span class="badge-flat bg-slate-100 text-slate-800">${item.badge}</span>
+            </td>
+            <td class="py-2.5 px-4 font-mono font-bold text-brand-primary">${item.product_id}</td>
+            <td class="py-2.5 px-4 max-w-xs truncate text-brand-secondary" title="${item.title}">${item.title}</td>
+            <td class="py-2.5 px-4 text-slate-500 text-[11px]">${item.posted_at || 'Recent'}</td>
+            <td class="py-2.5 px-4 text-right">
+              <button onclick="deleteItem('${item.product_id}')" class="text-red-600 hover:text-red-800 font-bold text-[11px] px-2 py-1 bg-red-50 border border-red-200 rounded-[2px]">
+                Delete
+              </button>
+            </td>
+          </tr>
+        `).join('');
+
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-red-500">Failed to load items.</td></tr>`;
+      }
+    }
+
+    async function deleteItem(productId) {
+      if (!confirm(`Delete ${productId} from registry? This will allow the product to be re-scraped.`)) return;
+
+      try {
+        const resp = await fetch(`/api/items/${encodeURIComponent(productId)}`, { method: 'DELETE' });
+        if (resp.ok) {
+          showToast('Product removed from database.');
+          loadScrapedItems();
+        }
+      } catch (err) {
+        showToast('Error deleting item.', true);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,5 +1,10 @@
 python-telegram-bot==20.8
-beautifulsoup4==4.12.3
-requests==2.31.0
 apscheduler==3.10.4
-fake-useragent==1.4.0
+scrapling
+playwright
+patchright
+curl-cffi
+browserforge
+msgspec
+fastapi
+uvicorn
