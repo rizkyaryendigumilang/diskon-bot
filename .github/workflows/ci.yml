@@ -9,6 +9,7 @@ on:
       - '*.txt'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/deploy-vps.yml'
   pull_request:
     branches: [main]
     paths:
