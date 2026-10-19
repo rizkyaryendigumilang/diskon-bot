@@ -36,7 +36,7 @@ jobs:
   deploy:
     name: Deploy code and restart configured services
     needs: validate
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,9 +95,9 @@ jobs:
           test ! -e "$backup" && test ! -e "$stage"
           mkdir "$stage"
           tar -xzf "$HOME/diskon-source-$release.tar.gz" -C "$stage"
-          tar --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' -czf "$backup" -C "$live" .
+          tar --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' -czf "$backup" -C "$live" .
           trap 'status=$?; if [ "$status" -ne 0 ] && [ -s "$backup" ]; then tar -xzf "$backup" -C "$live"; fi; rm -rf "$stage"; exit "$status"' ERR
-          rsync -a --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' "$stage/" "$live/"
+          rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$stage/" "$live/"
           sudo -n systemctl restart "$web_service" "$bot_service"
           for i in $(seq 1 20); do
             if curl -fsS http://127.0.0.1:8000/ >/dev/null; then
@@ -110,7 +110,11 @@ jobs:
             sleep 2
           done
           echo "Web health check failed; restoring previous code."
-          tar -xzf "$backup" -C "$live"
+          restore="$HOME/diskon-restore-$release"
+          mkdir -p "$restore"
+          tar -xzf "$backup" -C "$restore"
+          rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$restore/" "$live/"
           sudo -n systemctl restart "$web_service" "$bot_service"
+          rm -rf "$restore"
           exit 1
           REMOTE
