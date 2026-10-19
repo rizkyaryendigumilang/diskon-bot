@@ -96,25 +96,36 @@ jobs:
           mkdir "$stage"
           tar -xzf "$HOME/diskon-source-$release.tar.gz" -C "$stage"
           tar --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' -czf "$backup" -C "$live" .
-          trap 'status=$?; if [ "$status" -ne 0 ] && [ -s "$backup" ]; then tar -xzf "$backup" -C "$live"; fi; rm -rf "$stage"; exit "$status"' ERR
+          rollback() {
+            status="${1:-$?}"
+            trap - ERR
+            if [ -s "$backup" ]; then
+              restore="$HOME/diskon-restore-$release"
+              rm -rf "$restore"
+              mkdir -p "$restore"
+              tar -xzf "$backup" -C "$restore"
+              rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$restore/" "$live/"
+              sudo -n systemctl restart "$web_service" "$bot_service" || true
+              rm -rf "$restore"
+            fi
+            rm -rf "$stage"
+            rm -f "$HOME/diskon-source-$release.tar.gz"
+            exit "$status"
+          }
+          trap 'rollback $?' ERR
           rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$stage/" "$live/"
           sudo -n systemctl restart "$web_service" "$bot_service"
+          healthy=false
           for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8000/ >/dev/null; then
-              rm -rf "$stage"
-              rm -f "$HOME/diskon-source-$release.tar.gz"
-              trap - ERR
-              echo "DiskonBot web health check passed. Database files and config.py were preserved."
-              exit 0
-            fi
+            if curl -fsS http://127.0.0.1:8000/ >/dev/null; then healthy=true; break; fi
             sleep 2
           done
-          echo "Web health check failed; restoring previous code."
-          restore="$HOME/diskon-restore-$release"
-          mkdir -p "$restore"
-          tar -xzf "$backup" -C "$restore"
-          rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$restore/" "$live/"
-          sudo -n systemctl restart "$web_service" "$bot_service"
-          rm -rf "$restore"
-          exit 1
+          if [ "$healthy" != true ]; then
+            echo "Web health check failed; rolling back."
+            rollback 1
+          fi
+          trap - ERR
+          rm -rf "$stage"
+          rm -f "$HOME/diskon-source-$release.tar.gz"
+          echo "Deployment successful; web endpoint returned HTTP 200. Database files, config.py and Python environments were preserved. Backup retained at $backup"
           REMOTE
