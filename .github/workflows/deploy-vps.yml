@@ -34,7 +34,7 @@ jobs:
         run: test -s server.py && test -s bot.py && test -s index.html && test -s requirements.txt
 
   deploy:
-    name: Deploy code and restart configured services
+    name: Deploy dashboard code and restart existing service
     needs: validate
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
@@ -71,25 +71,19 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USERNAME }}
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
           DEPLOY_DIR: ${{ secrets.DISKON_DEPLOY_DIR || '/home/ubuntu/platform-repos/diskon-bot' }}
-          WEB_SERVICE: ${{ secrets.DISKON_WEB_SERVICE }}
-          BOT_SERVICE: ${{ secrets.DISKON_BOT_SERVICE }}
         run: |
           set -euo pipefail
-          test -n "$WEB_SERVICE" && test -n "$BOT_SERVICE" || { echo "Set DISKON_WEB_SERVICE and DISKON_BOT_SERVICE to the exact existing systemd unit names before deployment."; exit 1; }
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$HOME/.ssh/id_ed25519" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "bash -s -- '$DEPLOY_DIR' '${GITHUB_SHA}' '$WEB_SERVICE' '$BOT_SERVICE'" <<'REMOTE'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$HOME/.ssh/id_ed25519" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "bash -s -- '$DEPLOY_DIR' '${GITHUB_SHA}'" <<'REMOTE'
           set -Eeuo pipefail
           live="$1"
           release="$2"
-          web_service="$3"
-          bot_service="$4"
+          service="diskon-bot-dashboard.service"
           [[ "$release" =~ ^[0-9a-f]{40}$ ]] || exit 1
-          [[ "$web_service" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || { echo "Invalid web service unit name"; exit 1; }
-          [[ "$bot_service" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || { echo "Invalid bot service unit name"; exit 1; }
           test -d "$live" && test ! -L "$live" || { echo "Deployment directory not found: $live"; exit 1; }
           command -v rsync >/dev/null
-          sudo -n systemctl cat "$web_service" "$bot_service" >/dev/null
-          sudo -n systemctl is-active "$web_service" >/dev/null
-          sudo -n systemctl is-active "$bot_service" >/dev/null
+          sudo -n systemctl cat "$service" >/dev/null
+          sudo -n systemctl is-active "$service" >/dev/null
+          test "$(sudo -n systemctl show -p WorkingDirectory --value "$service")" = "$live" || { echo "Service WorkingDirectory differs from expected deployment directory."; exit 1; }
           backup="$HOME/diskon-backup-$release.tar.gz"
           stage="$HOME/diskon-stage-$release"
           test ! -e "$backup" && test ! -e "$stage"
@@ -105,7 +99,7 @@ jobs:
               mkdir -p "$restore"
               tar -xzf "$backup" -C "$restore"
               rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$restore/" "$live/"
-              sudo -n systemctl restart "$web_service" "$bot_service" || true
+              sudo -n systemctl restart "$service" || true
               rm -rf "$restore"
             fi
             rm -rf "$stage"
@@ -114,7 +108,7 @@ jobs:
           }
           trap 'rollback $?' ERR
           rsync -a --delete --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' --exclude='venv' --exclude='.venv' --exclude='node_modules' --exclude='.runtime' "$stage/" "$live/"
-          sudo -n systemctl restart "$web_service" "$bot_service"
+          sudo -n systemctl restart "$service"
           healthy=false
           for i in $(seq 1 20); do
             if curl -fsS http://127.0.0.1:8000/ >/dev/null; then healthy=true; break; fi
