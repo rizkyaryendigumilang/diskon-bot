@@ -1,0 +1,116 @@
+name: Deploy DiskonBot to VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.py'
+      - '*.html'
+      - '*.txt'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diskon-bot-production
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate application
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q -x '(^|/)(__pycache__|android|ios)/' .
+      - name: Verify deployment source files
+        run: test -s server.py && test -s bot.py && test -s index.html && test -s requirements.txt
+
+  deploy:
+    name: Deploy code and restart configured services
+    needs: validate
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package source without runtime data or credentials
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='__pycache__' --exclude='android' --exclude='ios' -czf diskon-source.tar.gz .
+      - name: Configure verified SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USERNAME }}
+          VPS_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST" && test -n "$VPS_USER" && test -n "$VPS_KEY" && test -n "$VPS_SSH_KNOWN_HOSTS" || { echo "Configure VPS_HOST, VPS_USERNAME, VPS_SSH_KEY and verified VPS_SSH_KNOWN_HOSTS"; exit 1; }
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+      - name: Upload source archive
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USERNAME }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+        run: scp -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$HOME/.ssh/id_ed25519" -P "$VPS_PORT" diskon-source.tar.gz "$VPS_USER@$VPS_HOST:diskon-source-${GITHUB_SHA}.tar.gz"
+      - name: Validate services, back up, deploy and restart
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USERNAME }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          DEPLOY_DIR: ${{ secrets.DISKON_DEPLOY_DIR || '/home/ubuntu/platform-repos/diskon-bot' }}
+          WEB_SERVICE: ${{ secrets.DISKON_WEB_SERVICE }}
+          BOT_SERVICE: ${{ secrets.DISKON_BOT_SERVICE }}
+        run: |
+          set -euo pipefail
+          test -n "$WEB_SERVICE" && test -n "$BOT_SERVICE" || { echo "Set DISKON_WEB_SERVICE and DISKON_BOT_SERVICE to the exact existing systemd unit names before deployment."; exit 1; }
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$HOME/.ssh/id_ed25519" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "bash -s -- '$DEPLOY_DIR' '${GITHUB_SHA}' '$WEB_SERVICE' '$BOT_SERVICE'" <<'REMOTE'
+          set -Eeuo pipefail
+          live="$1"
+          release="$2"
+          web_service="$3"
+          bot_service="$4"
+          [[ "$release" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$web_service" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || { echo "Invalid web service unit name"; exit 1; }
+          [[ "$bot_service" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || { echo "Invalid bot service unit name"; exit 1; }
+          test -d "$live" && test ! -L "$live" || { echo "Deployment directory not found: $live"; exit 1; }
+          command -v rsync >/dev/null
+          sudo -n systemctl cat "$web_service" "$bot_service" >/dev/null
+          sudo -n systemctl is-active "$web_service" >/dev/null
+          sudo -n systemctl is-active "$bot_service" >/dev/null
+          backup="$HOME/diskon-backup-$release.tar.gz"
+          stage="$HOME/diskon-stage-$release"
+          test ! -e "$backup" && test ! -e "$stage"
+          mkdir "$stage"
+          tar -xzf "$HOME/diskon-source-$release.tar.gz" -C "$stage"
+          tar --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' -czf "$backup" -C "$live" .
+          trap 'status=$?; if [ "$status" -ne 0 ] && [ -s "$backup" ]; then tar -xzf "$backup" -C "$live"; fi; rm -rf "$stage"; exit "$status"' ERR
+          rsync -a --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='.git' --exclude='__pycache__' "$stage/" "$live/"
+          sudo -n systemctl restart "$web_service" "$bot_service"
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/ >/dev/null; then
+              rm -rf "$stage"
+              rm -f "$HOME/diskon-source-$release.tar.gz"
+              trap - ERR
+              echo "DiskonBot web health check passed. Database files and config.py were preserved."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Web health check failed; restoring previous code."
+          tar -xzf "$backup" -C "$live"
+          sudo -n systemctl restart "$web_service" "$bot_service"
+          exit 1
+          REMOTE
