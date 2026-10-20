@@ -8,3 +8,4 @@ browserforge
 msgspec
 fastapi
 uvicorn
+httpx>=0.26.0

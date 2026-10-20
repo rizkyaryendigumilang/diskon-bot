@@ -1,6 +1,7 @@
 # server.py — REST API & Web Dashboard Server for Affiliate Bot
 import asyncio
 import logging
+import os
 import re
 from datetime import datetime
 from typing import Optional
@@ -56,7 +57,7 @@ ENGINE_STATE = {
 
 # Simple secure session token store (in-memory for admin sessions)
 ACTIVE_SESSIONS = set()
-ADMIN_SECRET = "admin123"  # Default secret, or Telegram Admin ID 8503838227
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "admin123")  # Default secret, or Telegram Admin ID 8503838227
 
 # ---------------------------------------------------------------------------
 # Background Auto-Pilot Worker

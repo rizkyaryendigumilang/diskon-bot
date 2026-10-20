@@ -32,6 +32,8 @@ jobs:
         run: python -m compileall -q -x '(^|/)(__pycache__|android|ios)/' .
       - name: Verify deployment source files
         run: test -s server.py && test -s bot.py && test -s index.html && test -s requirements.txt
+      - name: Run automated test suite
+        run: python -m unittest test_app.py
 
   deploy:
     name: Deploy dashboard code and restart existing service

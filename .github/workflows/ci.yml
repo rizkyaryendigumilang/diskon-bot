@@ -46,6 +46,8 @@ jobs:
         run: python -m compileall -q -x '(^|/)(__pycache__|android|ios)/' .
       - name: Validate dashboard entry point
         run: test -s index.html && test -s server.py && test -s bot.py
+      - name: Run automated test suite
+        run: python -m unittest test_app.py
       - name: Detect database files tracked in Git
         run: |
           if git ls-files '*.db' '*.sqlite' '*.sqlite3' | grep -q .; then
