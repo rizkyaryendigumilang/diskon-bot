@@ -1,8 +1,26 @@
 # config.py
 import os
 
-# Token Bot Telegram (dapat diset via environment variable BOT_TOKEN)
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8664285364:AAEA-jQ-Ba7dey9QnC0c_i6Si271Kt4v0OI")
+def _load_env_file(filepath=".env"):
+    """Muat variabel lingkungan dari file .env lokal jika tersedia."""
+    if os.path.isfile(filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_env_file()
+
+# Token Bot Telegram (diset via environment variable BOT_TOKEN atau .env)
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 # Username Channel Publik Anda
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@infodiskonbykiky")

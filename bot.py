@@ -416,6 +416,9 @@ async def handle_video_message(update: Update, context: ContextTypes.DEFAULT_TYP
 # MAIN
 # ---------------------------------------------------------------------------
 def main():
+    if not BOT_TOKEN:
+        logger.error("❌ BOT_TOKEN belum diset. Silakan isi BOT_TOKEN di file .env atau environment variables.")
+        return
     init_db()
     application = Application.builder().token(BOT_TOKEN).build()
 
