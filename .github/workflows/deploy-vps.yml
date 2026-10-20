@@ -43,7 +43,11 @@ jobs:
       - name: Package source without runtime data or credentials
         run: |
           set -euo pipefail
-          tar --exclude='.git' --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='__pycache__' --exclude='android' --exclude='ios' -czf diskon-source.tar.gz .
+          pkg_tmp="${RUNNER_TEMP:-/tmp}/diskon-pack-${GITHUB_SHA}"
+          mkdir -p "$pkg_tmp"
+          tar --exclude='.git' --exclude='*.db' --exclude='*.sqlite' --exclude='*.sqlite3' --exclude='config.py' --exclude='.env' --exclude='.env.*' --exclude='__pycache__' --exclude='android' --exclude='ios' -czf "$pkg_tmp/diskon-source.tar.gz" .
+          mv "$pkg_tmp/diskon-source.tar.gz" diskon-source.tar.gz
+          rm -rf "$pkg_tmp"
       - name: Configure verified SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
