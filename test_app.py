@@ -8,7 +8,17 @@ from starlette.testclient import TestClient
 import config
 import database
 import converter
+import server
 from server import app
+
+def setUpModule():
+    """Ensure database schema is initialized and background scraper is paused during tests."""
+    database.init_db()
+    server.ENGINE_STATE["is_running"] = False
+
+def tearDownModule():
+    """Clean up any test artifacts if necessary."""
+    pass
 
 class TestConverter(unittest.TestCase):
     def test_shopee_long_url_conversion(self):
@@ -66,6 +76,8 @@ class TestDatabase(unittest.TestCase):
 
 class TestAPIEndpoints(unittest.TestCase):
     def setUp(self):
+        database.init_db()
+        server.ENGINE_STATE["is_running"] = False
         self.client = TestClient(app)
 
     def test_dashboard_html_served(self):
